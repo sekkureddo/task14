@@ -1,0 +1,27 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for install_nginx
+
+# Server name (используется в vars для путей SSL; закомментирован = ошибка "undefined")
+nginx_server_name: "{{ ansible_fqdn | default('localhost') }}"
+
+# Ports
+nginx_ssl_port: 443
+nginx_http_port: 80
+
+# Paths
+# Путь внутри контейнера (должен совпадать с volume в docker)
+nginx_root: /var/www/html
+# Пути на хосте (control → managed node)
+nginx_host_base: /opt/nginx
+nginx_host_html: /opt/nginx/html
+nginx_host_ssl: /opt/nginx/ssl
+
+
+
+# Performance
+nginx_worker_connections: 1024
+
+
+# Redirects
+nginx_redirect_url: https://www.numuki.com/

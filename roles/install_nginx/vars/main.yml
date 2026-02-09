@@ -1,0 +1,9 @@
+#SPDX-License-Identifier: MIT-0
+---
+# vars file for install_nginx
+nginx_certbot_root: /var/www/certbot
+nginx_ssl_cert_path: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+nginx_ssl_key_path: "/etc/letsencrypt/live/{{ nginx_server_name }}/privkey.pem"
+
+# Cache
+nginx_image_cache_expiry: 1m

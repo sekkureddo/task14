@@ -1,0 +1,111 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for install_postgres
+
+
+- name: Start postgres container
+  community.docker.docker_container:
+    name: "{{ db_host }}"
+    image: "postgres:{{ pg_ver }}"
+    ports:
+    - "5432:5432"
+    env:
+      POSTGRES_USER: "{{ postgres_user }}"
+      POSTGRES_DB: "{{ postgres_db }}"
+      POSTGRES_PASSWORD: "{{ vault_postgres_password }}"
+    volumes:
+    - pgdata:/var/lib/postgresql/data
+    state: started
+    restart_policy: always
+  tags: pg_install
+
+
+- name: Start postgres with cron container
+  community.docker.docker_container:
+    name: "cron"
+    image: "postgres:{{ pg_ver }}"
+    env:
+      POSTGRES_PASSWORD: "{{ vault_postgres_password }}"
+      POSTGRES_USER: "{{ postgres_user }}"
+      POSTGRES_DB: "{{ postgres_db }}"
+    ports:
+    - "5433:5432"
+    state: started
+  tags: pg_install
+
+
+- name: Install pg_cron 
+  community.docker.docker_container_exec:
+    container: "cron"
+    command: >
+      bash -c "
+      apt-get update &&
+      apt-get install -y postgresql-{{ pg_ver }}-cron
+      "
+  tags: pg_install
+
+
+- name:  Configure postgresql.conf 
+  community.docker.docker_container_exec:
+    container: "cron"
+    command: >
+      bash -c "
+      echo \"shared_preload_libraries = 'pg_cron'\" >> /var/lib/postgresql/data/postgresql.conf &&
+      echo \"cron.database_name = 'postgres'\" >> /var/lib/postgresql/data/postgresql.conf
+      "
+  tags: pg_install
+
+
+- name: Container reload
+  community.docker.docker_container:
+    name: "cron"
+    image: "postgres:{{ pg_ver }}"
+    state: started
+    restart: true
+  tags: pg_install
+
+
+- name: Create extension
+  community.docker.docker_container_exec:
+    container: "cron"
+    command: psql -h localhost -U user -d postgres -p 5432 -c "CREATE EXTENSION IF NOT EXISTS pg_cron;"
+  tags: pg_install
+
+
+
+- name: Stop postgres container
+  community.docker.docker_container:
+    name: postgres
+    state: stopped
+  tags: postgres_stop
+
+
+- name: Restart postgres container
+  community.docker.docker_container:
+    name: postgres
+    state: started
+  tags: postgres_restart
+
+
+- name: Remove postgres container
+  community.docker.docker_container:
+    name: "{{ db_host }}"
+    state: absent
+    keep_volumes: false
+  tags: pg_uninstall
+
+
+- name: Remove pg_cron
+  community.docker.docker_container:
+    name: "cron"
+    state: absent
+  tags: pg_uninstall
+
+
+- name: Remove volumes
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - "pgdata"    
+  tags: pg_uninstall

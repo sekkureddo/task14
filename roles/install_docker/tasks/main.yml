@@ -1,0 +1,106 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for install_docker
+- name: install docker & docker-compose
+  become: true
+  apt: 
+    update_cache: yes
+    name:
+      - docker.io
+      - docker-compose-v2
+    state: latest
+  retries: 10
+  delay: 10
+  tags: docker_install
+
+
+- name: add user to docker group
+  become: true
+  user:
+    name: ubuntu
+    groups: docker
+    append: true
+  when: ansible_user == 'ubuntu'
+  tags: docker_install
+
+
+- name: Обновление прав (переподключение)
+  meta: reset_connection
+  tags: docker_install
+
+
+- name: add docker service to autostart
+  become: true
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes      # Перечитать файлы конфигурации
+  loop:
+    - docker.socket
+    - docker.service
+  tags: docker_install
+
+
+- name: Остановить все запущенные контейнеры
+  become: true
+  shell: docker stop $(docker ps -aq) || true
+  tags: docker_uninstall
+
+
+- name: Удалить все контейнеры, сети и образы
+  become: true
+  shell: docker system prune -a --volumes -f || true
+  tags: docker_uninstall
+
+- name: Принудительная остановка юнитов (даже если файлы удалены)
+  become: true
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+  failed_when: false # Игнорируем ошибки, если файлы уже стерты
+  loop:
+    - docker.service
+    - docker.socket
+  tags: docker_uninstall
+
+- name: Перезагрузка конфигурации systemd (очистка памяти)
+  become: true
+  systemd:
+    daemon_reload: yes
+  tags: docker_uninstall
+
+- name: Uninstall docker packages
+  become: true
+  apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - docker-doc
+      - docker-buildx-plugin
+      - containerd
+      - runc
+    state: absent
+    purge: yes
+    autoremove: yes
+  retries: 10
+  delay: 10
+  tags: docker_uninstall
+
+
+- name: Удаление системных директорий Docker
+  become: true
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/docker
+    - /var/lib/containerd
+    - /etc/docker
+    - /var/run/docker.sock
+  tags: docker_uninstall
+
+
+
+
+

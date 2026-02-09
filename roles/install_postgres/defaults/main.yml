@@ -1,0 +1,7 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for install_postgres
+postgres_user: user
+postgres_db: db
+pg_ver: "16"
+db_host: postgres

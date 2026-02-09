@@ -1,0 +1,93 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for install_nginx
+
+# === Install (tags: nginx_pre-install, nginx_install) ===
+
+- name: Create nginx directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ nginx_host_base }}"
+    - "{{ nginx_host_html }}"
+    - "{{ nginx_host_ssl }}"
+  tags: nginx_install
+
+
+- name: Deploy nginx config from template
+  become: true
+  ansible.builtin.template:
+    src: conf.j2
+    dest: "{{ nginx_host_base }}/nginx.conf"
+  tags: nginx_install
+
+
+- name: Copy all files 
+  become: true
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/"
+    dest: "{{ nginx_host_html }}/"
+    mode: preserve
+  tags: nginx_install
+
+- name: Copy SSL keys
+  become: yes
+  ansible.builtin.copy:
+    src: "{{ item }}" 
+    dest: "{{ nginx_host_ssl }}/{{ item }}"
+    mode: '0644'
+  loop:
+    - fullchain.pem
+    - privkey.pem
+  tags: nginx_install
+
+
+
+- name: Run nginx container
+  community.docker.docker_container:
+    name: nginx
+    image: nginx:latest
+    ports:
+      - "80:{{ nginx_http_port }}"
+      - "443:{{ nginx_ssl_port }}"
+    state: started
+    volumes:
+      - "{{ nginx_host_base }}/nginx.conf:/etc/nginx/nginx.conf:ro"
+      - "{{ nginx_host_html }}:{{ nginx_root }}:ro"
+      - "{{ nginx_host_ssl }}:/etc/nginx/ssl:ro"
+  tags: nginx_install
+
+
+  # === Uninstall (tag: nginx_uninstall) ===
+- name: Stop and remove nginx container
+  community.docker.docker_container:
+    name: nginx
+    state: absent
+  tags: nginx_uninstall
+
+
+- name: Remove nginx config file
+  become: true
+  ansible.builtin.file:
+    path: "{{ nginx_host_base }}/nginx.conf"
+    state: absent
+  tags: nginx_uninstall
+
+
+- name: Remove nginx html directory and contents
+  become: true
+  ansible.builtin.file:
+    path: "{{ nginx_host_html }}"
+    state: absent
+  tags: nginx_uninstall
+
+
+- name: Remove nginx base directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ nginx_host_base }}"
+    state: absent
+  tags: nginx_uninstall

@@ -1,0 +1,18 @@
+---
+- name: Install Docker
+  hosts: webservers
+  roles:
+    - install_docker
+  tags: docker
+
+- name: Install nginx
+  hosts: webservers
+  roles:
+    - install_nginx
+  tags: nginx
+
+- name: Install Postgres
+  hosts: webservers
+  roles:
+    - install_postgres
+  tags: postgres
